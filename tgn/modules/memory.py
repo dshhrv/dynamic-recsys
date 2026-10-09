@@ -13,22 +13,14 @@ class Memory(nn.Module):
         self.message_dimension = message_dimension
         self.device = device
         self.combination_method = combination_method
-        self.register_buffer(
-            "memory",
-            torch.zeros(
-                (self.n_nodes, self.memory_dimension), device=self.device
-            ),
-        )
-        self.register_buffer(
-            "last_update",
-            torch.zeros(self.n_nodes, device=self.device),
-        )
         self.__init_memory__()
 
     def __init_memory__(self):
-        with torch.no_grad():
-            self.memory.zero_()
-            self.last_update.zero_()
+        self.memory = nn.Parameter(torch.zeros((self.n_nodes, self.memory_dimension)).to(self.device),
+                               requires_grad=False)
+        self.last_update = nn.Parameter(torch.zeros(self.n_nodes).to(self.device),
+                                        requires_grad=False)
+
         self.messages = defaultdict(list)
 
     def _node_indices(self, node_idxs):
@@ -85,3 +77,65 @@ class Memory(nn.Module):
     def clear_messages(self, nodes):
         for node in nodes:
             self.messages[node] = []
+
+
+
+class TrainableMemory(nn.Module):
+    def __init__(self, n_nodes, memory_dimension, device="cpu"):
+        super().__init__()
+        self.n_nodes = n_nodes
+        self.memory_dimension = memory_dimension
+        self.device = device
+        self.memory = nn.Parameter(
+            torch.empty(n_nodes, memory_dimension, device=device)
+        )
+        nn.init.xavier_uniform_(self.memory)
+        with torch.no_grad():
+            self.memory[0].zero_()
+
+        self.last_update = torch.nn.Parameter(
+            torch.zeros(n_nodes, dtype=torch.long, device=device),
+            requires_grad=False
+        )
+        # self.messages = defaultdict(list)
+
+    def __init__memory(self):
+        with torch.no_grad():
+            self.last_update.zero_()
+        # self.messages = defaultdict(list)
+
+    def _node_indices(self, node_idxs):
+        return torch.as_tensor(
+            node_idxs, dtype=torch.long, device=self.memory.device
+        )
+
+    def get_memory(self, node_idxs):
+        node_idxs = self._node_indices(node_idxs)
+        return self.memory[node_idxs, :]
+
+    def get_all_memory(self):
+        return self.memory
+
+    def get_last_update(self, node_idxs):
+        node_idxs = self._node_indices(node_idxs)
+        return self.last_update[node_idxs]
+
+    def set_memory(self, node_idxs, values):
+        pass
+
+    def store_raw_messages(self, nodes, node_id_to_messages):
+        pass
+
+    def backup_memory(self):
+        return self.last_update.detach().clone()
+
+    def restore_memory(self, memory_backup):
+        if memory_backup is not None:
+            with torch.no_grad():
+                self.last_update.copy_(memory_backup)
+
+    def detach_memory(self):
+        pass
+
+    def clear_messages(self, nodes):
+        pass

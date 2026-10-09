@@ -23,7 +23,7 @@ class TGNModel(BaseModel):
         n_degree=10,
         n_epochs=60,
         batch_size=1024,
-        memory_batch_size=32,
+        # memory_batch_size=32,
         learning_rate=3e-4,
         device="cuda",
         seed=0,
@@ -31,20 +31,18 @@ class TGNModel(BaseModel):
         dropout=0.1,
         n_layers=1,
         use_memory=True,
-        message_dim=100,
+        # message_dim=100,
         num_candidates=128,
         loss_type="bpr",
         item_chunk_size=128,
-        # backprop_every=1,
-        backprop_every=32,
+        backprop_every=1,
         patience=10,
         n_valid=5,
         edge=EDGE,
-        # trainable_node_features=False,
-        trainable_node_features=True,
-        # aggregator="exponential",
-        aggregator="mean",
-        aggregation_half_life=600.0,
+        trainable_node_features=False,
+        # trainable_node_features=True,
+        # aggregator="mean",
+        # aggregation_half_life=600.0,
     ):
         super().__init__(name)
         self.name = name
@@ -52,11 +50,13 @@ class TGNModel(BaseModel):
         self.n_degree = n_degree
         self.n_epochs = n_epochs
         self.batch_size = int(batch_size)
-        self.memory_batch_size = int(memory_batch_size)
-        self.gradient_accumulation_steps = (
-            self.batch_size // self.memory_batch_size
-        )
-        self.backprop_every = int(backprop_every)
+        # self.memory_batch_size = int(memory_batch_size)
+        # self.gradient_accumulation_steps = (
+        #     self.batch_size // self.memory_batch_size
+        # )
+        # self.backprop_every = int(backprop_every)
+        self.gradient_accumulation_steps = 1
+        self.backprop_every = 1
         self.learning_rate = 3e-4
         self.device = torch.device(device)
         self.seed = int(seed)
@@ -64,7 +64,7 @@ class TGNModel(BaseModel):
         self.dropout = dropout
         self.n_layers = n_layers
         self.use_memory = use_memory
-        self.message_dim = message_dim
+        # self.message_dim = message_dim
         self.num_candidates = num_candidates
         self.loss_type = str(loss_type).lower()
         loss_classes = {
@@ -79,12 +79,12 @@ class TGNModel(BaseModel):
         self.edge = EDGE if edge is None else bool(edge)
         self.trainable_node_features = bool(trainable_node_features)
 
-        self.aggregator = aggregator
-        self.aggregation_half_life = float(aggregation_half_life)
-        self.message_function = "identity"
+        # self.aggregator = aggregator
+        # self.aggregation_half_life = float(aggregation_half_life)
+        # self.message_function = "identity"
         self.memory_update_at_start = True
         self.embedding_module = "graph_attention"
-        self.memory_updater = "gru"
+        # self.memory_updater = "gru"
 
         self.model = None
         self.optimizer = None
@@ -161,7 +161,7 @@ class TGNModel(BaseModel):
                     "n_degree": self.n_degree,
                     "n_epochs": self.n_epochs,
                     "batch_size": self.batch_size,
-                    "memory_batch_size": self.memory_batch_size,
+                    # "memory_batch_size": self.memory_batch_size,
                     "gradient_accumulation_steps": (
                         self.gradient_accumulation_steps
                     ),
@@ -170,7 +170,7 @@ class TGNModel(BaseModel):
                     "dropout": self.dropout,
                     "n_layers": self.n_layers,
                     "use_memory": self.use_memory,
-                    "message_dim": self.message_dim,
+                    # "message_dim": self.message_dim,
                     "num_candidates": self.num_candidates,
                     "loss_type": self.loss_type,
                     "item_chunk_size": self.item_chunk_size,
@@ -179,8 +179,8 @@ class TGNModel(BaseModel):
                     "n_valid": self.n_valid,
                     "edge": self.edge,
                     "seed": self.seed,
-                    "aggregator": self.aggregator,
-                    "aggregation_half_life": self.aggregation_half_life,
+                    # "aggregator": self.aggregator,
+                    # "aggregation_half_life": self.aggregation_half_life,
                 },
             )
         run.define_metric("loss", step_metric="epoch")
@@ -200,9 +200,7 @@ class TGNModel(BaseModel):
             train_df["item_id"].to_numpy(),
             minlength=self.n_items
         )
-        pop_threshold = np.quantile(item_popularity, 0.9)
 
-        
         self.train_df = train_df.copy()
         source_nodes = train_df["user_id"].to_numpy(np.int64) + 1
         destination_nodes = (train_df["item_id"].to_numpy(np.int64) + self.n_users + 1)
@@ -248,18 +246,18 @@ class TGNModel(BaseModel):
             dropout=self.dropout,
             use_memory=self.use_memory,
             memory_update_at_start=self.memory_update_at_start,
-            message_dimension=self.message_dim,
+            # message_dimension=self.message_dim,
             memory_dimension=self.memory_dim,
             embedding_module_type=self.embedding_module,
-            message_function=self.message_function,
+            # message_function=self.message_function,
             mean_time_shift_src=mean_src,
             std_time_shift_src=max(std_src, 1e-10),
             mean_time_shift_dst=mean_dst,
             std_time_shift_dst=max(std_dst, 1e-10),
             n_neighbors=self.n_degree,
-            aggregator_type=self.aggregator,
-            aggregation_half_life=self.aggregation_half_life,
-            memory_updater_type=self.memory_updater,
+            # aggregator_type=self.aggregator,
+            # aggregation_half_life=self.aggregation_half_life,
+            # memory_updater_type=self.memory_updater,
             use_edge_features=self.edge,
             trainable_node_features=self.trainable_node_features,
         ).to(self.device)
@@ -270,10 +268,11 @@ class TGNModel(BaseModel):
         )
 
         num_interactions = self.train_data.n_interactions
-        num_memory_batches = int(
-            np.ceil(num_interactions / self.memory_batch_size)
-        )
+        # num_memory_batches = int(
+        #     np.ceil(num_interactions / self.memory_batch_size)
+        # )
         num_batches = int(np.ceil(num_interactions / self.batch_size))
+        num_memory_batches = num_batches
         all_item_nodes = (
             np.arange(
                 self.n_users + 1,
@@ -297,7 +296,9 @@ class TGNModel(BaseModel):
         for epoch in range(self.n_epochs):
             self.model.train()
             if self.use_memory:
-                self.model.memory.__init_memory__()
+                # self.model.memory.__init_memory__()
+                with torch.no_grad():
+                    self.model.memory.last_update.zero_()
             if self.loss_type == "bpr":
                 self.seen_items_mask = np.zeros(
                     (self.n_users, self.n_items), dtype=bool
@@ -315,7 +316,7 @@ class TGNModel(BaseModel):
                 if accumulation_index == 0:
                     self.optimizer.zero_grad()
                     optimization_batch_start = (
-                        memory_batch * self.memory_batch_size
+                        memory_batch * self.batch_size
                     )
                     optimization_batch_size = min(
                         self.batch_size,
@@ -325,9 +326,9 @@ class TGNModel(BaseModel):
                         (), device=self.device
                     )
 
-                start = memory_batch * self.memory_batch_size
+                start = memory_batch * self.batch_size
                 end = min(
-                    start + self.memory_batch_size,
+                    start + self.batch_size,
                     num_interactions,
                 )
                 sources = self.train_data.sources[start:end]
@@ -595,7 +596,7 @@ class TGNModel(BaseModel):
                 progress.update(1)
             else:
                 pending_events.append((user_id, item_id, time, edge_idx))
-                if len(pending_events) >= self.memory_batch_size:
+                if len(pending_events) >= self.batch_size:
                     process_event_batch(pending_events)
                     progress.update(len(pending_events))
                     pending_events.clear()
