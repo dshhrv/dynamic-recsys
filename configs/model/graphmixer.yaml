@@ -1,0 +1,21 @@
+_target_: src.models.graphmixer.GraphMixerModel
+
+name: graphmixer
+time_feat_dim: 100
+num_tokens: 10
+num_layers: 2
+token_dim_expansion_factor: 0.5
+channel_dim_expansion_factor: 4.0
+dropout: 0.1
+learning_rate: 1e-4
+batch_size: 200
+num_epochs: 10
+num_neighbors: 10
+time_gap: 2000
+device: mps
+seed: 0
+node_feat_dim: 64
+edge_feat_dim: 1
+num_channels: 64
+eval_item_batch_size: 1024
+num_candidates: 128

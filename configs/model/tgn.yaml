@@ -1,0 +1,26 @@
+_target_: src.models.tgn.TGNModel
+
+name: tgn
+memory_dim: 64
+n_degree: 10
+n_epochs: 40
+batch_size: 1024
+memory_batch_size: 32
+aggregator: mean
+aggregation_half_life: 600.0
+learning_rate: 0.0003
+trainable_node_features: true
+n_heads: 2
+dropout: 0.1
+n_layers: 1
+use_memory: true
+message_dim: 100
+num_candidates: 128
+item_chunk_size: 128
+backprop_every: 32
+patience: 5
+n_valid: 5
+edge: null
+device: mps
+seed: 0
+loss_type: bpr
