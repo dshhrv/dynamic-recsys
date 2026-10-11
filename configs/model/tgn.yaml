@@ -9,7 +9,7 @@ batch_size: 256
 # aggregator: mean
 # aggregation_half_life: 600.0
 learning_rate: 0.0003
-trainable_node_features: false
+trainable_node_features: true
 n_heads: 2
 dropout: 0.1
 n_layers: 1

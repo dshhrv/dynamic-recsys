@@ -1,7 +1,25 @@
 import optuna
 import numpy as np
+from pathlib import Path
+import os
+import torch
 
 from abc import abstractmethod
+
+
+def save_weights(model, path):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = path.with_name(f".{path.name}.tmp")
+    torch.save(
+        {name: tensor.detach().cpu() for name, tensor in model.state_dict().items()},
+        temporary_path,
+    )
+    os.replace(temporary_path, path)
+
+
+def load_weights(model, path):
+    model.load_state_dict(torch.load(path, map_location="cpu"))
 
 
 class BaseModel:

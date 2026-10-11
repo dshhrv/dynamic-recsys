@@ -1,4 +1,4 @@
-from src.base import BaseModel
+from src.base import BaseModel, load_weights, save_weights
 import os
 import torch
 import torch.nn as nn
@@ -272,7 +272,15 @@ class SASRecModel(BaseModel):
         return {"n_epochs": self.n_epochs}
             
     
-    def fit(self, train_dataset, val_dataset, metrics=None, max_top_n=20):
+    def fit(
+        self,
+        train_dataset,
+        val_dataset,
+        metrics=None,
+        max_top_n=20,
+        checkpoint_path=None,
+        resume_epoch=0,
+    ):
         """
         Fit the model to the dataset.
         """
@@ -281,6 +289,8 @@ class SASRecModel(BaseModel):
             train_dataset,
             val_dataset
         )
+        if resume_epoch and checkpoint_path is not None:
+            load_weights(self.model, checkpoint_path)
 
         run = current_run()
         if run is None:
@@ -313,7 +323,7 @@ class SASRecModel(BaseModel):
         best_epoch = -1
         best_state_dict = None
 
-        for i in range(self.n_epochs):
+        for i in range(resume_epoch, self.n_epochs):
             self.model.train()
 
             train_loss = []
@@ -349,6 +359,7 @@ class SASRecModel(BaseModel):
                 "train/loss": mean_train_loss,
             }
 
+            stop_training = False
             if (i + 1) % self.patience_per_epoch == 0 and val_dataset is not None:
 
                 holdout_users = val_dataset.get_holdout_users()
@@ -388,10 +399,13 @@ class SASRecModel(BaseModel):
                 else:
                     patience_cnt += 1
                     if patience_cnt >= self.max_patience:
-                        run.log(epoch_logs, step=i + 1)
-                        break
+                        stop_training = True
 
             run.log(epoch_logs, step=i + 1)
+            if checkpoint_path is not None:
+                save_weights(self.model, checkpoint_path)
+            if stop_training:
+                break
 
         if best_metric >= 0:
             self.model.load_state_dict(best_state_dict)

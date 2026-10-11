@@ -6,7 +6,7 @@ import torch.optim as optim
 from torch.utils.checkpoint import checkpoint
 from tqdm import tqdm
 
-from src.base import BaseModel
+from src.base import BaseModel, load_weights, save_weights
 from src.utils.clearml_logger import current_run, init_run
 from tgn.model.tgn import TGN
 from tgn.utils.data import Data, compute_time_statistics
@@ -39,7 +39,7 @@ class TGNModel(BaseModel):
         patience=10,
         n_valid=5,
         edge=EDGE,
-        trainable_node_features=False,
+        trainable_node_features=True,
         # trainable_node_features=True,
         # aggregator="mean",
         # aggregation_half_life=600.0,
@@ -146,7 +146,15 @@ class TGNModel(BaseModel):
 
         return torch.cat(catalog_logits, dim=1)
 
-    def fit(self, train_dataset, val_dataset=None, metrics=None, max_top_n=20):
+    def fit(
+        self,
+        train_dataset,
+        val_dataset=None,
+        metrics=None,
+        max_top_n=20,
+        checkpoint_path=None,
+        resume_epoch=0,
+    ):
         run = current_run()
         created_run = run is None
 
@@ -261,6 +269,8 @@ class TGNModel(BaseModel):
             use_edge_features=self.edge,
             trainable_node_features=self.trainable_node_features,
         ).to(self.device)
+        if resume_epoch and checkpoint_path is not None:
+            load_weights(self.model, checkpoint_path)
         self.train_edge_raw_features = self.model.edge_raw_features.clone()
 
         self.optimizer = torch.optim.Adam(
@@ -282,7 +292,7 @@ class TGNModel(BaseModel):
             if self.loss_type == "fce"
             else None
         )
-        total_steps = self.n_epochs * num_batches
+        total_steps = max(1, (self.n_epochs - resume_epoch) * num_batches)
         self.scheduler = optim.lr_scheduler.OneCycleLR(
             self.optimizer,
             max_lr=1e-3,
@@ -293,7 +303,7 @@ class TGNModel(BaseModel):
         )
         patience_counter = 0
 
-        for epoch in range(self.n_epochs):
+        for epoch in range(resume_epoch, self.n_epochs):
             self.model.train()
             if self.use_memory:
                 # self.model.memory.__init_memory__()
@@ -474,6 +484,8 @@ class TGNModel(BaseModel):
                 self.model.embedding_module.edge_features = self.train_edge_raw_features
                 self.model.train()
             run.log(log_dict)
+            if checkpoint_path is not None:
+                save_weights(self.model, checkpoint_path)
             if (
                 val_dataset is not None
                 and metrics is not None

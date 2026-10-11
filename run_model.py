@@ -1,6 +1,7 @@
 import json
 import inspect
 from pathlib import Path
+import re
 
 import hydra
 from hydra.core.hydra_config import HydraConfig
@@ -93,12 +94,21 @@ def run_train(cfg, verbose: bool = True, test_mode: bool = False):
             fit_kwargs["metrics"] = metrics
         if "max_top_n" in fit_parameters:
             fit_kwargs["max_top_n"] = cfg.max_top_n
+        checkpoint_path = None
+        if "checkpoint_path" in fit_parameters and "resume_epoch" in fit_parameters:
+            checkpoint_name = re.sub(r"\s+", "", str(cfg.get("checkpoint_name", "weights")))
+            checkpoint_path = Path(HydraConfig.get().runtime.output_dir) / f"{checkpoint_name}.pt"
+            resume_epoch = max(0, int(cfg.get("num", 0)))
+            fit_kwargs["checkpoint_path"] = str(checkpoint_path)
+            fit_kwargs["resume_epoch"] = resume_epoch
         model.fit(train_dataset, eval_dataset, **fit_kwargs)
     else:
         model.fit(train_dataset, None)
 
     output_dir = Path(HydraConfig.get().runtime.output_dir)
-    torch.save(model.model.state_dict(), output_dir / f"{cfg.model.name}_weights.pt")
+    fit_parameters = inspect.signature(model.fit).parameters
+    if test_mode or "checkpoint_path" not in fit_parameters:
+        torch.save(model.model.state_dict(), output_dir / f"{cfg.model.name}_weights.pt")
     
     if verbose:
         logger.info(f"Training completed.\n")

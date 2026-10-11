@@ -1,4 +1,4 @@
-from src.base import BaseModel
+from src.base import BaseModel, load_weights, save_weights
 from src.utils.clearml_logger import current_run, init_run
 import torch
 import random
@@ -65,7 +65,15 @@ class GraphMixerModel(BaseModel):
         self.best_val_ndcg = -np.inf
         self.best_state_dict = None
 
-    def fit(self, train_dataset, val_dataset=None, metrics=None, max_top_n=20):
+    def fit(
+        self,
+        train_dataset,
+        val_dataset=None,
+        metrics=None,
+        max_top_n=20,
+        checkpoint_path=None,
+        resume_epoch=0,
+    ):
         run = current_run()
         created_run = run is None
 
@@ -146,13 +154,15 @@ class GraphMixerModel(BaseModel):
             num_channels=self.num_channels,
             device=str(self.device),
         ).to(self.device)
+        if resume_epoch and checkpoint_path is not None:
+            load_weights(self.model, checkpoint_path)
         self.train_edge_raw_features = self.model.edge_raw_features.clone()
 
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate, weight_decay=1e-2)
         num_interactions = self.train_data.num_interactions
         indices = np.arange(num_interactions)
 
-        for epoch in range(self.num_epochs):
+        for epoch in range(resume_epoch, self.num_epochs):
             seen_items_mask = np.zeros((self.n_users + 1, self.n_items), dtype=bool)
             self.model.train()
             self.rng.shuffle(indices)
@@ -214,6 +224,8 @@ class GraphMixerModel(BaseModel):
                 self.model.train()
 
             run.log(log_dict)
+            if checkpoint_path is not None:
+                save_weights(self.model, checkpoint_path)
             print(f"Epoch {epoch + 1}/{self.num_epochs}, loss={mean_train_loss:.4f}")
         if val_dataset is not None and self.best_state_dict is not None:
             self.model.load_state_dict(self.best_state_dict)

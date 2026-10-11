@@ -28,7 +28,7 @@ class TGN(torch.nn.Module):
         memory_updater_type="gru",
         use_destination_embedding_in_message=False,
         use_source_embedding_in_message=False,
-        dyrep=False, use_edge_features=True, trainable_node_features=False
+        dyrep=False, use_edge_features=True, trainable_node_features=True
     ):
         super(TGN, self).__init__()
 

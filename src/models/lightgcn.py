@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch_geometric.nn.models import LightGCN as PygLightGCN
 from torch_geometric.utils import dropout_edge
 
-from src.base import BaseModel
+from src.base import BaseModel, load_weights, save_weights
 from src.metrics import NDCGMetric
 from src.utils.clearml_logger import init_run
 
@@ -194,7 +194,7 @@ class LightGCN(BaseModel):
 
             return u.detach()
 
-    def fit(self, train_dataset, val_dataset=None):
+    def fit(self, train_dataset, val_dataset=None, checkpoint_path=None, resume_epoch=0):
         torch.manual_seed(self.seed)
         np.random.seed(self.seed)
 
@@ -224,6 +224,9 @@ class LightGCN(BaseModel):
         torch.nn.init.xavier_uniform_(
             self.model.embedding.weight
         )
+
+        if resume_epoch and checkpoint_path is not None:
+            load_weights(self.model, checkpoint_path)
 
         optimizer = torch.optim.Adam(
             self.model.parameters(),
@@ -299,7 +302,7 @@ class LightGCN(BaseModel):
 
         first_batch_reported = False
 
-        for epoch in range(self.n_epochs):
+        for epoch in range(resume_epoch, self.n_epochs):
             self.model.train()
 
             epoch_total_loss = 0.0
@@ -583,6 +586,9 @@ class LightGCN(BaseModel):
                 logs,
                 step=epoch + 1,
             )
+
+            if checkpoint_path is not None:
+                save_weights(self.model, checkpoint_path)
 
             if should_stop:
                 break
